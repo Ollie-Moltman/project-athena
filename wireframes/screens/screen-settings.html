@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Athena — Settings Tab</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:#0d1117;color:#e6edf3;min-height:100vh}
+.screen{max-width:420px;margin:0 auto;padding:24px 20px;min-height:100vh;display:flex;flex-direction:column}
+.settings-title{font-size:22px;font-weight:700;color:#f0f6fc;margin-bottom:24px}
+.account-card{background:linear-gradient(135deg,#161b22 0%,#1f2937 100%);border:1px solid #30363d;border-radius:16px;padding:18px;margin-bottom:16px;display:flex;align-items:center;gap:14px}
+.account-avatar{width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,#1f6feb,#a78bfa);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:white;flex-shrink:0}
+.account-info{flex:1;min-width:0}
+.account-name{font-size:16px;font-weight:600;color:#f0f6fc;margin-bottom:2px;display:flex;align-items:center;gap:8px}
+.plan-badge{display:inline-block;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;background:rgba(139,92,246,0.2);color:#a78bfa}
+.pro-upgrade{background:linear-gradient(135deg,#238636,#2ea043);border:none;border-radius:10px;padding:10px 16px;font-size:13px;font-weight:600;color:white;cursor:pointer;white-space:nowrap}
+.account-plan{font-size:12px;color:#8b949e}
+.daily-usage{background:#161b22;border:1px solid #21262d;border-radius:12px;padding:16px;margin-bottom:20px}
+.usage-header{display:flex;justify-content:space-between;margin-bottom:10px}
+.usage-label{font-size:13px;color:#f0f6fc;font-weight:500}
+.usage-count{font-size:13px;color:#8b949e}
+.usage-bar{height:8px;background:#21262d;border-radius:4px;overflow:hidden}
+.usage-fill{height:100%;background:linear-gradient(90deg,#238636,#3fb950);border-radius:4px}
+.usage-detail{font-size:11px;color:#484f58;margin-top:6px}
+.settings-section{margin-bottom:24px}
+.section-title{font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:10px}
+.setting-row{background:#161b22;border:1px solid #21262d;border-radius:12px;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;cursor:pointer;transition:all 0.2s}
+.setting-row:hover{background:#1c2128;border-color:#30363d}
+.setting-row:last-child{margin-bottom:0}
+.setting-info{flex:1}
+.setting-name{font-size:14px;font-weight:500;color:#f0f6fc;margin-bottom:2px}
+.setting-desc{font-size:12px;color:#8b949e}
+.setting-value{font-size:13px;color:#8b949e;margin-right:8px}
+.setting-arrow{color:#484f58;font-size:16px}
+.toggle{width:44px;height:24px;background:#30363d;border-radius:12px;position:relative;cursor:pointer;transition:background 0.2s;flex-shrink:0}
+.toggle.on{background:#238636}
+.toggle::after{content:'';position:absolute;top:2px;left:2px;width:20px;height:20px;background:white;border-radius:50%;transition:transform 0.2s}
+.toggle.on::after{transform:translateX(20px)}
+.badge-row{display:flex;gap:6px;margin-top:4px}
+.badge-green{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;background:rgba(35,134,54,0.2);color:#3fb950}
+.badge-red{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;background:rgba(248,81,73,0.2);color:#f85149}
+.page-bottom{height:80px}
+
+/* Nav bar */
+.nav-bar{position:fixed;bottom:0;left:0;right:0;background:rgba(13,17,23,0.95);backdrop-filter:blur(20px);border-top:1px solid #21262d;padding:8px 0;padding-bottom:calc(8px + env(safe-area-inset-bottom, 0px));z-index:100}
+.nav-inner{max-width:420px;margin:0 auto;display:flex;justify-content:space-around}
+.nav-item{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 20px;border-radius:12px;cursor:pointer;transition:all 0.2s;color:#484f58;font-size:11px;border:none;background:none}
+.nav-item.active{color:#58a6ff}
+.nav-item:hover:not(.active){background:#161b22}
+.nav-icon{font-size:22px}
+</style>
+</head>
+<body>
+<div class="screen">
+  <div class="settings-title">Settings</div>
+
+  <!-- Account card -->
+  <div class="account-card">
+    <div class="account-avatar">O</div>
+    <div class="account-info">
+      <div class="account-name">Ollie <span class="plan-badge">PRO</span></div>
+      <div class="account-plan">Unlimited scans • All features unlocked</div>
+    </div>
+    <button class="pro-upgrade">Upgrade</button>
+  </div>
+
+  <!-- Daily usage -->
+  <div class="daily-usage">
+    <div class="usage-header">
+      <span class="usage-label">Daily Scans</span>
+      <span class="usage-count">12 / Unlimited</span>
+    </div>
+    <div class="usage-bar"><div class="usage-fill" style="width:100%"></div></div>
+    <div class="usage-detail">Resets in 14h 23m</div>
+  </div>
+
+  <!-- Scan Settings -->
+  <div class="settings-section">
+    <div class="section-title">Scan Settings</div>
+
+    <div class="setting-row">
+      <div class="setting-info">
+        <div class="setting-name">Capture duration</div>
+        <div class="setting-desc">Length of video to record per scan</div>
+      </div>
+      <span class="setting-value">3 seconds</span>
+      <span class="setting-arrow">→</span>
+    </div>
+
+    <div class="setting-row" onclick="this.querySelector('.toggle').classList.toggle('on')">
+      <div class="setting-info">
+        <div class="setting-name">Auto-scan mode</div>
+        <div class="setting-desc">Automatically scan when video is detected</div>
+      </div>
+      <div class="toggle" onclick="event.stopPropagation();this.classList.toggle('on')"></div>
+    </div>
+
+    <div class="setting-row" onclick="this.querySelector('.toggle').classList.toggle('on')">
+      <div class="setting-info">
+        <div class="setting-name">Haptic feedback</div>
+        <div class="setting-desc">Vibrate when scan completes</div>
+      </div>
+      <div class="toggle on" onclick="event.stopPropagation();this.classList.toggle('on')"></div>
+    </div>
+
+    <div class="setting-row" onclick="this.querySelector('.toggle').classList.toggle('on')">
+      <div class="setting-info">
+        <div class="setting-name">Sound effects</div>
+        <div class="setting-desc">Play sound when verdict is ready</div>
+      </div>
+      <div class="toggle" onclick="event.stopPropagation();this.classList.toggle('on')"></div>
+    </div>
+  </div>
+
+  <!-- Privacy & Data -->
+  <div class="settings-section">
+    <div class="section-title">Privacy &amp; Data</div>
+
+    <div class="setting-row">
+      <div class="setting-info">
+        <div class="setting-name">On-device processing</div>
+        <div class="badge-row">
+          <span class="badge-green">✓ Data never leaves phone</span>
+        </div>
+      </div>
+      <span class="setting-arrow" style="color:#3fb950">✓</span>
+    </div>
+
+    <div class="setting-row">
+      <div class="setting-info">
+        <div class="setting-name">Scan history</div>
+        <div class="setting-desc">47 scans stored locally</div>
+      </div>
+      <span class="setting-arrow">→</span>
+    </div>
+
+    <div class="setting-row">
+      <div class="setting-info">
+        <div class="setting-name">Clear all data</div>
+        <div class="badge-row">
+          <span class="badge-red">⚠ Deletes all scans &amp; history</span>
+        </div>
+      </div>
+      <span class="setting-arrow">→</span>
+    </div>
+
+    <div class="setting-row">
+      <div class="setting-info">
+        <div class="setting-name">Export scan history</div>
+        <div class="setting-desc">Download as JSON or CSV</div>
+      </div>
+      <span class="setting-arrow">→</span>
+    </div>
+  </div>
+
+  <!-- About -->
+  <div class="settings-section">
+    <div class="section-title">About</div>
+
+    <div class="setting-row">
+      <div class="setting-info">
+        <div class="setting-name">Detection Methodology</div>
+        <div class="setting-desc">How Athena identifies AI-generated videos</div>
+      </div>
+      <span class="setting-arrow">→</span>
+    </div>
+
+    <div class="setting-row">
+      <div class="setting-info">
+        <div class="setting-name">Privacy Policy</div>
+        <div class="setting-desc">No data collection or sharing</div>
+      </div>
+      <span class="setting-arrow">→</span>
+    </div>
+
+    <div class="setting-row">
+      <div class="setting-info">
+        <div class="setting-name">Open Source Licenses</div>
+        <div class="setting-desc">Athena uses these ML models</div>
+      </div>
+      <span class="setting-arrow">→</span>
+    </div>
+
+    <div class="setting-row">
+      <div class="setting-info">
+        <div class="setting-name">Send Feedback</div>
+        <div class="setting-desc">Report bugs or suggest features</div>
+      </div>
+      <span class="setting-arrow">→</span>
+    </div>
+  </div>
+
+  <!-- Version -->
+  <div class="setting-row" style="cursor:default;border-color:transparent;background:transparent;padding:8px 0">
+    <div class="setting-info">
+      <div class="setting-name" style="color:#484f58;font-size:12px">Athena v1.0.0 • Build 2026.05.31</div>
+    </div>
+  </div>
+
+  <div class="page-bottom"></div>
+  <div class="nav-bar"><div class="nav-inner">
+    <button class="nav-item" onclick=""><span class="nav-icon">🔍</span>Scan</button>
+    <button class="nav-item" onclick=""><span class="nav-icon">📋</span>History</button>
+    <button class="nav-item active" onclick=""><span class="nav-icon">⚙️</span>Settings</button>
+  </div></div>
+</div>
+</body>
+</html>
