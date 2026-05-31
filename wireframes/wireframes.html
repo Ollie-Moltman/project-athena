@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Athena — AI Video Detector</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:#0d1117;color:#e6edf3;min-height:100vh}
+.screen{max-width:420px;margin:0 auto;padding:24px 20px;min-height:100vh;display:none;flex-direction:column}
+.screen.active{display:flex}
+.screen-0{background:linear-gradient(180deg,#0d1117 0%,#161b22 100%)}
+.logo{text-align:center;margin-bottom:32px}
+.logo-icon{width:72px;height:72px;margin:0 auto 12px}
+.logo h1{font-size:28px;font-weight:700;color:#f0f6fc;letter-spacing:-0.5px}
+.logo p{font-size:13px;color:#8b949e;margin-top:4px}
+.input-card{background:#161b22;border:1px solid #30363d;border-radius:16px;padding:16px;margin-bottom:16px}
+.input-label{font-size:12px;color:#8b949e;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px}
+.url-input-wrap{display:flex;gap:10px;align-items:center}
+.url-input-wrap input{flex:1;background:#0d1117;border:1px solid #30363d;border-radius:10px;padding:14px 16px;font-size:14px;color:#e6edf3;outline:none;transition:border-color 0.2s}
+.url-input-wrap input:focus{border-color:#58a6ff}
+.url-input-wrap input::placeholder{color:#484f58}
+.paste-btn{background:#21262d;border:1px solid #30363d;border-radius:10px;padding:12px;color:#8b949e;font-size:18px;cursor:pointer;transition:all 0.2s}
+.paste-btn:hover{background:#30363d;color:#e6edf3}
+.scan-btn{background:linear-gradient(135deg,#238636 0%,#2ea043 100%);border:none;border-radius:12px;padding:16px;font-size:16px;font-weight:600;color:white;cursor:pointer;width:100%;transition:all 0.2s;display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:24px}
+.scan-btn:hover{transform:translateY(-1px);box-shadow:0 4px 20px rgba(35,134,54,0.4)}
+.scan-btn:active{transform:translateY(0)}
+.scan-btn .spinner{width:20px;height:20px;border:2px solid rgba(255,255,255,0.3);border-top-color:white;border-radius:50%;animation:spin 0.8s linear infinite;display:none}
+.scan-btn.loading .spinner{display:block}
+.scan-btn.loading .btn-text{display:none}
+.scan-btn.loading .btn-loading{display:inline}
+.scan-btn .btn-loading{display:none}
+@keyframes spin{to{transform:rotate(360deg)}}
+.divider{text-align:center;margin:20px 0;position:relative}
+.divider::before{content:'';position:absolute;top:50%;left:0;right:0;height:1px;background:#30363d}
+.divider span{background:#161b22;padding:0 16px;position:relative;font-size:12px;color:#484f58}
+.recent-list{display:flex;flex-direction:column;gap:8px}
+.recent-item{background:#161b22;border:1px solid #21262d;border-radius:12px;padding:12px;display:flex;gap:12px;align-items:center;cursor:pointer;transition:all 0.2s}
+.recent-item:hover{border-color:#30363d;background:#1c2128}
+.recent-thumb{width:56px;height:56px;border-radius:8px;object-fit:cover;background:#21262d}
+.recent-info{flex:1;min-width:0}
+.recent-title{font-size:13px;font-weight:500;color:#f0f6fc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:4px}
+.recent-meta{font-size:11px;color:#8b949e;display:flex;align-items:center;gap:8px}
+.badge{padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600}
+.badge-real{background:rgba(35,134,54,0.2);color:#3fb950}
+.badge-ai{background:rgba(210,153,34,0.2);color:#d29922}
+.badge-uncertain{background:rgba(86,95,102,0.2);color:#8b949e}
+.screen-1{justify-content:center;align-items:center;text-align:center}
+.scanning-visual{width:120px;height:120px;margin:0 auto 32px;position:relative}
+.scanning-ring{position:absolute;inset:0;border-radius:50%;border:3px solid transparent;border-top-color:#58a6ff;animation:spin 1.2s linear infinite}
+.scanning-ring:nth-child(2){inset:8px;border-top-color:#1f6feb;animation-duration:1.5s;animation-direction:reverse}
+.scanning-ring:nth-child(3){inset:16px;border-top-color:#388bfd;animation-duration:1.8s}
+.scanning-center{position:absolute;inset:28px;background:#161b22;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:28px}
+.scan-phase{font-size:13px;color:#8b949e;margin-bottom:8px}
+.scan-percent{font-size:36px;font-weight:700;color:#f0f6fc;margin-bottom:8px}
+.scan-detail{font-size:12px;color:#484f58}
+.layers-progress{width:100%;margin-top:40px;display:flex;flex-direction:column;gap:12px}
+.layer-row{display:flex;align-items:center;gap:12px}
+.layer-name{font-size:12px;color:#8b949e;width:100px;text-align:left}
+.layer-bar{flex:1;height:6px;background:#21262d;border-radius:3px;overflow:hidden}
+.layer-fill{height:100%;border-radius:3px;transition:width 0.5s ease}
+.layer-fill.provenance{background:linear-gradient(90deg,#238636,#3fb950)}
+.layer-fill.visual{background:linear-gradient(90deg,#1f6feb,#58a6ff)}
+.layer-fill.deeplearning{background:linear-gradient(90deg,#8b5cf6,#a78bfa)}
+.layer-fill.contextual{background:linear-gradient(90deg,#d29922,#e3b341)}
+.result-header{display:flex;align-items:center;gap:12px;margin-bottom:24px}
+.back-btn{background:#21262d;border:none;border-radius:10px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;color:#8b949e;font-size:18px;cursor:pointer;transition:all 0.2s}
+.back-btn:hover{background:#30363d;color:#f0f6fc}
+.result-legend{font-size:14px;color:#8b949e}
+.verdict-card{background:#161b22;border:1px solid #30363d;border-radius:20px;padding:28px;text-align:center;margin-bottom:20px}
+.verdict-icon{font-size:56px;margin-bottom:12px}
+.verdict-badge{display:inline-flex;align-items:center;gap:8px;padding:8px 20px;border-radius:100px;font-size:16px;font-weight:700;margin-bottom:12px}
+.verdict-badge.real{background:rgba(35,134,54,0.15);color:#3fb950}
+.verdict-badge.ai{background:rgba(210,153,34,0.15);color:#d29922}
+.verdict-badge.uncertain{background:rgba(86,95,102,0.15);color:#8b949e}
+.confidence{font-size:40px;font-weight:700;color:#f0f6fc;margin-bottom:4px}
+.confidence-label{font-size:12px;color:#8b949e}
+.video-preview{background:#161b22;border:1px solid #30363d;border-radius:16px;padding:12px;display:flex;gap:12px;margin-bottom:20px}
+.video-thumb{width:100px;height:70px;border-radius:10px;object-fit:cover;background:#21262d}
+.video-info{flex:1;display:flex;flex-direction:column;justify-content:center}
+.video-title{font-size:14px;font-weight:500;color:#f0f6fc;margin-bottom:6px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.video-meta{font-size:12px;color:#8b949e}
+.breakdown-title{font-size:14px;font-weight:600;color:#f0f6fc;margin-bottom:16px}
+.breakdown-list{display:flex;flex-direction:column;gap:12px;margin-bottom:20px}
+.breakdown-item{background:#161b22;border:1px solid #21262d;border-radius:12px;padding:14px}
+.breakdown-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.breakdown-name{font-size:13px;font-weight:500;color:#f0f6fc;display:flex;align-items:center;gap:8px}
+.breakdown-score{font-size:13px;font-weight:600}
+.breakdown-score.high{color:#f85149}
+.breakdown-score.med{color:#d29922}
+.breakdown-score.low{color:#3fb950}
+.breakdown-bar{height:5px;background:#21262d;border-radius:3px;overflow:hidden}
+.breakdown-fill{height:100%;border-radius:3px}
+.breakdown-findings{font-size:11px;color:#8b949e;margin-top:8px;line-height:1.5}
+.share-btn{background:#21262d;border:1px solid #30363d;border-radius:12px;padding:14px;width:100%;display:flex;align-items:center;justify-content:center;gap:10px;font-size:14px;font-weight:500;color:#f0f6fc;cursor:pointer;transition:all 0.2s}
+.share-btn:hover{background:#30363d}
+.history-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
+.history-title{font-size:20px;font-weight:700;color:#f0f6fc}
+.filter-chips{display:flex;gap:8px;margin-bottom:20px;overflow-x:auto;padding-bottom:4px}
+.chip{padding:8px 16px;border-radius:100px;font-size:12px;font-weight:500;background:#21262d;color:#8b949e;border:1px solid #30363d;cursor:pointer;white-space:nowrap;transition:all 0.2s}
+.chip.active{background:#1f6feb;color:white;border-color:#1f6feb}
+.chip:hover:not(.active){background:#30363d}
+.history-stats{display:flex;gap:12px;margin-bottom:20px}
+.stat-card{flex:1;background:#161b22;border:1px solid #21262d;border-radius:12px;padding:14px;text-align:center}
+.stat-num{font-size:22px;font-weight:700;color:#f0f6fc}
+.stat-label{font-size:11px;color:#8b949e;margin-top:2px}
+.history-list{display:flex;flex-direction:column;gap:10px}
+.history-item{background:#161b22;border:1px solid #21262d;border-radius:14px;padding:14px;display:flex;gap:12px;cursor:pointer;transition:all 0.2s}
+.history-item:hover{border-color:#30363d}
+.history-thumb{width:80px;height:60px;border-radius:10px;object-fit:cover;background:#21262d;flex-shrink:0}
+.history-info{flex:1;min-width:0}
+.history-title-text{font-size:14px;font-weight:500;color:#f0f6fc;margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.history-meta{display:flex;align-items:center;gap:10px;font-size:12px;color:#8b949e}
+.history-time{margin-left:auto;font-size:11px;color:#484f58}
+.settings-title{font-size:20px;font-weight:700;color:#f0f6fc;margin-bottom:24px}
+.settings-section{margin-bottom:28px}
+.section-title{font-size:12px;color:#8b949e;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px}
+.setting-row{background:#161b22;border:1px solid #21262d;border-radius:12px;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.setting-info{flex:1}
+.setting-name{font-size:14px;font-weight:500;color:#f0f6fc;margin-bottom:2px}
+.setting-desc{font-size:12px;color:#8b949e}
+.toggle{width:48px;height:26px;background:#30363d;border-radius:13px;position:relative;cursor:pointer;transition:background 0.2s}
+.toggle.on{background:#238636}
+.toggle::after{content:'';position:absolute;top:3px;left:3px;width:20px;height:20px;background:white;border-radius:50%;transition:transform 0.2s}
+.toggle.on::after{transform:translateX(22px)}
+.account-card{background:linear-gradient(135deg,#161b22 0%,#1f2937 100%);border:1px solid #30363d;border-radius:16px;padding:20px;margin-bottom:20px;display:flex;align-items:center;gap:14px}
+.account-avatar{width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,#1f6feb,#a78bfa);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:white}
+.account-info{flex:1}
+.account-name{font-size:16px;font-weight:600;color:#f0f6fc;margin-bottom:2px}
+.account-plan{font-size:13px;color:#8b949e}
+.plan-badge{display:inline-block;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:600;background:rgba(139,92,246,0.2);color:#a78bfa;margin-left:6px}
+.pro-upgrade{background:linear-gradient(135deg,#238636,#2ea043);border:none;border-radius:10px;padding:12px 20px;font-size:14px;font-weight:600;color:white;cursor:pointer}
+.daily-usage{background:#161b22;border:1px solid #21262d;border-radius:12px;padding:16px;margin-bottom:20px}
+.usage-header{display:flex;justify-content:space-between;margin-bottom:10px}
+.usage-label{font-size:13px;color:#f0f6fc;font-weight:500}
+.usage-count{font-size:13px;color:#8b949e}
+.usage-bar{height:8px;background:#21262d;border-radius:4px;overflow:hidden}
+.usage-fill{height:100%;background:linear-gradient(90deg,#238636,#3fb950);border-radius:4px}
+.version{font-size:13px;color:#484f58}
+.nav-bar{position:fixed;bottom:0;left:0;right:0;background:rgba(13,17,23,0.95);backdrop-filter:blur(20px);border-top:1px solid #21262d;padding:8px 0;padding-bottom:calc(8px + env(safe-area-inset-bottom, 0px));z-index:100}
+.nav-inner{max-width:420px;margin:0 auto;display:flex;justify-content:space-around}
+.nav-item{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 20px;border-radius:12px;cursor:pointer;transition:all 0.2s;color:#484f58;font-size:11px;border:none;background:none}
+.nav-item.active{color:#58a6ff}
+.nav-item:hover:not(.active){background:#161b22}
+.nav-icon{font-size:22px}
+.page-bottom{height:80px}
+</style>
+</head>
+<body>
+<div class="screen screen-0 active" id="screen0">
+  <div class="logo">
+    <svg class="logo-icon" viewBox="0 0 72 72"><rect width="72" height="72" rx="18" fill="url(#g)"/><path d="M36 18L52 42H20L36 18Z" fill="white" opacity="0.9"/><circle cx="36" cy="46" r="8" fill="white" opacity="0.6"/><defs><linearGradient id="g" x1="0" y1="0" x2="72" y2="72"><stop offset="0%" stop-color="#1f6feb"/><stop offset="100%" stop-color="#8b5cf6"/></linearGradient></defs></svg>
+    <h1>Athena</h1><p>AI Video Detector</p>
+  </div>
+  <div class="input-card">
+    <div class="input-label">YouTube Video URL</div>
+    <div class="url-input-wrap">
+      <input type="text" id="urlInput" placeholder="https://youtube.com/watch?v=...">
+      <button class="paste-btn" onclick="pasteFromClipboard()">📋</button>
+    </div>
+  </div>
+  <button class="scan-btn" id="scanBtn" onclick="startScan()">
+    <span class="btn-text">🔍 Analyze Video</span>
+    <span class="btn-loading">Analyzing...</span>
+    <span class="spinner"></span>
+  </button>
+  <div class="divider"><span>Recent Scans</span></div>
+  <div class="recent-list">
+    <div class="recent-item" onclick="showScreen(2)"><img class="recent-thumb" src="https://picsum.photos/seed/vid1/112/112" alt=""><div class="recent-info"><div class="recent-title">This AMAZING technique will change everything!</div><div class="recent-meta"><span class="badge badge-real">✅ Real</span><span>92% confidence</span></div></div></div>
+    <div class="recent-item" onclick="showScreen(2)"><img class="recent-thumb" src="https://picsum.photos/seed/vid2/112/112" alt=""><div class="recent-info"><div class="recent-title">World's First AI Generated News Anchor</div><div class="recent-meta"><span class="badge badge-ai">⚠️ AI</span><span>87% confidence</span></div></div></div>
+    <div class="recent-item" onclick="showScreen(2)"><img class="recent-thumb" src="https://picsum.photos/seed/vid3/112/112" alt=""><div class="recent-info"><div class="recent-title">My cat did something hilarious today</div><div class="recent-meta"><span class="badge badge-real">✅ Real</span><span>78% confidence</span></div></div></div>
+  </div>
+  <div class="page-bottom"></div>
+  <div class="nav-bar"><div class="nav-inner">
+    <button class="nav-item active" onclick="showScreen(0)"><span class="nav-icon">🔍</span>Scan</button>
+    <button class="nav-item" onclick="showScreen(3)"><span class="nav-icon">📜</span>History</button>
+    <button class="nav-item" onclick="showScreen(4)"><span class="nav-icon">⚙️</span>Settings</button>
+  </div></div>
+</div>
+
+<div class="screen screen-1" id="screen1">
+  <div class="scanning-visual"><div class="scanning-ring"></div><div class="scanning-ring"></div><div class="scanning-ring"></div><div class="scanning-center">🔍</div></div>
+  <div class="scan-phase" id="scanPhase">Layer 1: Checking provenance...</div>
+  <div class="scan-percent" id="scanPercent">0%</div>
+  <div class="scan-detail" id="scanDetail">Downloading video metadata</div>
+  <div class="layers-progress">
+    <div class="layer-row"><span class="layer-name">Provenance</span><div class="layer-bar"><div class="layer-fill provenance" id="bar1" style="width:0%"></div></div></div>
+    <div class="layer-row"><span class="layer-name">Visual</span><div class="layer-bar"><div class="layer-fill visual" id="bar2" style="width:0%"></div></div></div>
+    <div class="layer-row"><span class="layer-name">Deep Learning</span><div class="layer-bar"><div class="layer-fill deeplearning" id="bar3" style="width:0%"></div></div></div>
+    <div class="layer-row"><span class="layer-name">Contextual</span><div class="layer-bar"><div class="layer-fill contextual" id="bar4" style="width:0%"></div></div></div>
+  </div>
+</div>
+
+<div class="screen screen-2" id="screen2">
+  <div class="result-header"><button class="back-btn" onclick="showScreen(0)">←</button><span class="result-legend">Analysis Results</span></div>
+  <div class="verdict-card">
+    <div class="verdict-icon">⚠️</div>
+    <div class="verdict-badge ai">⚠️ AI-GENERATED</div>
+    <div class="confidence">87%</div>
+    <div class="confidence-label">confidence</div>
+  </div>
+  <div class="video-preview"><img class="video-thumb" src="https://picsum.photos/seed/vid2/200/140" alt=""><div class="video-info"><div class="video-title">World's First AI Generated News Anchor</div><div class="video-meta">📺 TechDaily • 2.4M views • 3 days ago</div></div></div>
+  <div class="breakdown-title">Detection Breakdown</div>
+  <div class="breakdown-list">
+    <div class="breakdown-item"><div class="breakdown-header"><span class="breakdown-name">🛡️ Provenance</span><span class="breakdown-score low">12%</span></div><div class="breakdown-bar"><div class="breakdown-fill" style="width:12%;background:#3fb950"></div></div><div class="breakdown-findings">• No C2PA metadata found<br>• YouTube AI label: Not set<br>• Channel: 2 weeks old, suspicious posting pattern</div></div>
+    <div class="breakdown-item"><div class="breakdown-header"><span class="breakdown-name">👁️ Visual Artifacts</span><span class="breakdown-score high">94%</span></div><div class="breakdown-bar"><div class="breakdown-fill" style="width:94%;background:#f85149"></div></div><div class="breakdown-findings">• Facial landmark inconsistencies detected<br>• Unnatural blinking pattern (avg 4.2s interval)<br>• Pixel-level frequency anomalies found</div></div>
+    <div class="breakdown-item"><div class="breakdown-header"><span class="breakdown-name">🧠 Deep Learning</span><span class="breakdown-score high">89%</span></div><div class="breakdown-bar"><div class="breakdown-fill" style="width:89%;background:#f85149"></div></div><div class="breakdown-findings">• STALL model confidence: 89% AI<br>• Temporal inconsistency score: High<br>• Face manipulation detected: Yes</div></div>
+    <div class="breakdown-item"><div class="breakdown-header"><span class="breakdown-name">📊 Contextual</span><span class="breakdown-score med">45%</span></div><div class="breakdown-bar"><div class="breakdown-fill" style="width:45%;background:#d29922"></div></div><div class="breakdown-findings">• Channel age: 2 weeks (suspicious)<br>• Posting frequency: 12 videos in 14 days<br>• Template-style description detected</div></div>
+  </div>
+  <button class="share-btn">📤 Share Results</button>
+  <div class="page-bottom"></div>
+  <div class="nav-bar"><div class="nav-inner">
+    <button class="nav-item" onclick="showScreen(0)"><span class="nav-icon">🔍</span>Scan</button>
+    <button class="nav-item" onclick="showScreen(3)"><span class="nav-icon">📜</span>History</button>
+    <button class="nav-item" onclick="showScreen(4)"><span class="nav-icon">⚙️</span>Settings</button>
+  </div></div>
+</div>
+
+<div class="screen screen-3" id="screen3">
+  <div class="history-header"><span class="history-title">Scan History</span></div>
+  <div class="filter-chips"><span class="chip active">All</span><span class="chip">⚠️ AI Generated</span><span class="chip">✅ Real</span><span class="chip">🤔 Uncertain</span></div>
+  <div class="history-stats">
+    <div class="stat-card"><div class="stat-num">47</div><div class="stat-label">Total Scans</div></div>
+    <div class="stat-card"><div class="stat-num">12</div><div class="stat-label">AI Detected</div></div>
+    <div class="stat-card"><div class="stat-num">35</div><div class="stat-label">Verified Real</div></div>
+  </div>
+  <div class="history-list">
+    <div class="history-item" onclick="showScreen(2)"><img class="history-thumb" src="https://picsum.photos/seed/vid2/160/120" alt=""><div class="history-info"><div class="history-title-text">World's First AI Generated News Anchor</div><div class="history-meta"><span class="badge badge-ai">⚠️ AI</span><span>87%</span></div></div><span class="history-time">3h ago</span></div>
+    <div class="history-item" onclick="showScreen(2)"><img class="history-thumb" src="https://picsum.photos/seed/vid1/160/120" alt=""><div class="history-info"><div class="history-title-text">This AMAZING technique will change everything!</div><div class="history-meta"><span class="badge badge-real">✅ Real</span><span>92%</span></div></div><span class="history-time">Yesterday</span></div>
+    <div class="history-item" onclick="showScreen(2)"><img class="history-thumb" src="https://picsum.photos/seed/vid4/160/120" alt=""><div class="history-info"><div class="history-title-text">Breaking: New AI Model Released Today</div><div class="history-meta"><span class="badge badge-ai">⚠️ AI</span><span>73%</span></div></div><span class="history-time">2 days ago</span></div>
+  </div>
+  <div class="page-bottom"></div>
+  <div class="nav-bar"><div class="nav-inner">
+    <button class="nav-item" onclick="showScreen(0)"><span class="nav-icon">🔍</span>Scan</button>
+    <button class="nav-item active" onclick="showScreen(3)"><span class="nav-icon">📜</span>History</button>
+    <button class="nav-item" onclick="showScreen(4)"><span class="nav-icon">⚙️</span>Settings</button>
+  </div></div>
+</div>
+
+<div class="screen screen-4" id="screen4">
+  <div class="settings-title">Settings</div>
+  <div class="account-card"><div class="account-avatar">O</div><div class="account-info"><div class="account-name">Ollie<span class="plan-badge">PRO</span></div><div class="account-plan">Unlimited scans</div></div></div>
+  <div class="daily-usage"><div class="usage-header"><span class="usage-label">Daily Scans</span><span class="usage-count">12 / Unlimited</span></div><div class="usage-bar"><div class="usage-fill" style="width:100%"></div></div></div>
+  <div class="settings-section">
+    <div class="section-title">Detection Settings</div>
+    <div class="setting-row"><div class="setting-info"><div class="setting-name">Auto-analyze on paste</div><div class="setting-desc">Start scan when URL is pasted</div></div><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+    <div class="setting-row"><div class="setting-info"><div class="setting-name">Detailed layer breakdown</div><div class="setting-desc">Show per-layer scores in results</div></div><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+  </div>
+  <div class="settings-section">
+    <div class="section-title">About</div>
+    <div class="setting-row"><div class="setting-info"><div class="setting-name">Methodology</div><div class="setting-desc">How detection works</div></div><span style="color:#8b949e">→</span></div>
+    <div class="setting-row"><div class="setting-info"><div class="setting-name">Privacy Policy</div><div class="setting-desc">Your data is never stored</div></div><span style="color:#8b949e">→</span></div>
+  </div>
+  <div class="setting-row"><div class="setting-info"><div class="setting-name" style="color:#484f58">Athena v1.0.0</div></div></div>
+  <div class="page-bottom"></div>
+  <div class="nav-bar"><div class="nav-inner">
+    <button class="nav-item" onclick="showScreen(0)"><span class="nav-icon">🔍</span>Scan</button>
+    <button class="nav-item" onclick="showScreen(3)"><span class="nav-icon">📜</span>History</button>
+    <button class="nav-item active" onclick="showScreen(4)"><span class="nav-icon">⚙️</span>Settings</button>
+  </div></div>
+</div>
+
+<script>
+function showScreen(n){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById('screen'+n).classList.add('active');document.querySelectorAll('.nav-item').forEach((it,i)=>it.classList.toggle('active',false));document.querySelectorAll('.nav-item').forEach((it,i)=>{if(i===n||(n===0&&i===0)||(n===3&&i===1)||(n===4&&i===2))it.classList.add('active');});}
+function pasteFromClipboard(){navigator.clipboard.readText().then(t=>{document.getElementById('urlInput').value=t;}).catch(()=>{});}
+function startScan(){const btn=document.getElementById('scanBtn');btn.classList.add('loading');showScreen(1);let p=0;const phases=[{phase:'Layer 1: Checking provenance...',detail:'Fetching video metadata',bars:[1]},{phase:'Layer 2: Visual artifact analysis...',detail:'Extracting frames',bars:[1,2]},{phase:'Layer 3: Deep learning classification...',detail:'Running STALL model',bars:[1,2,3]},{phase:'Layer 4: Contextual analysis...',detail:'Channel behavior check',bars:[1,2,3,4]},{phase:'Finalizing results...',detail:'Computing confidence scores',bars:[1,2,3,4]}];let idx=0;function tick(){if(idx<phases.length){const ph=phases[idx];document.getElementById('scanPhase').textContent=ph.phase;document.getElementById('scanDetail').textContent=ph.detail;ph.bars.forEach(b=>{document.getElementById('bar'+b).style.width=(20+Math.random()*30)+'%';});p+=20;document.getElementById('scanPercent').textContent=Math.min(p,99)+'%';idx++;setTimeout(tick,800);}else{document.getElementById('scanPercent').textContent='100%';document.getElementById('scanPhase').textContent='Complete!';document.getElementById('scanDetail').textContent='Finalizing verdict...';setTimeout(()=>{btn.classList.remove('loading');showScreen(2);},600);}}tick();}
+document.querySelectorAll('.chip').forEach(c=>{c.addEventListener('click',function(){document.querySelectorAll('.chip').forEach(ch=>ch.classList.remove('active'));this.classList.add('active');});});
+</script>
+</body>
+</html>
