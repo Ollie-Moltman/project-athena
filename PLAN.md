@@ -4,7 +4,7 @@
 
 **Name:** Athena — AI Video Detector
 
-**Core functionality:** User pastes a YouTube video URL → app analyzes it → returns a verdict: "AI-Generated" or "Real" with a confidence score and breakdown of which detection methods fired.
+**Core functionality:** User plays any video on screen → opens Athena → taps "Start Scanning" → 3-button floating overlay appears → captures 3 seconds → sends frames to backend → returns verdict: "AI-Generated" or "Real" with confidence score and per-layer breakdown.
 
 **Target users:**
 - Journalists / fact-checkers verifying video authenticity
@@ -18,30 +18,27 @@
 ## 2. Detection Pipeline Architecture
 
 ```
-YouTube URL
+Screen Capture (MediaProjection)
     │
     ├─ Layer 1: Provenance Check (fast, ~1s)
-    │   ├─ YouTube AI label API (does platform say it's AI?)
-    │   ├─ Video metadata extraction (upload date, channel age)
-    │   └─ C2PA metadata check (if video file has embedded provenance)
+    │   └─ Capture metadata signals (frame rate, size consistency)
     │
     ├─ Layer 2: Visual Artifact Analysis (medium, ~10-30s)
-    │   ├─ Face landmark consistency (blinking, mouth sync)
-    │   ├─ Temporal motion analysis (frame-to-frame consistency)
-    │   ├─ Spatial frequency anomaly detection
-    │   └─ Stitching artifact detection (clip boundaries ~8s)
+    │   ├─ Spatial frequency anomaly detection (OpenCV DFT)
+    │   ├─ Color distribution analysis
+    │   ├─ Face landmark consistency (future)
+    │   └─ Temporal frame consistency (future)
     │
     ├─ Layer 3: Deep Learning Classifier (slower, ~30-60s)
-    │   └─ Pre-trained model (e.g., DeMamba or BusterX)
+    │   └─ Pre-trained model (UNITE or STALL — CPU-friendly)
     │
     └─ Layer 4: Contextual Signals (fast, ~1s)
-        ├─ Channel behavior patterns
-        └─ Video metadata analysis
+        └─ Capture duration + frame rate patterns
 
-Final Verdict → Confidence Score → Breakdown
+Final Verdict → Confidence Score → Per-Layer Breakdown
 ```
 
-**Why a backend is needed:** Layers 2 & 3 require running ML models that are too heavy for a phone. Analysis happens server-side, results streamed to app.
+**Why a backend is needed:** Layers 2& 3 require running ML models that are too heavy for a phone. Analysis happens server-side, results streamed to app.
 
 ---
 
@@ -52,56 +49,66 @@ Final Verdict → Confidence Score → Breakdown
 **Screens:**
 
 1. **Home / Scan Screen**
-   - YouTube URL input field
-   - Paste button
-   - Scan button
-   - Animated scanning indicator
+   - Big circular "SCAN" button (no URL input)
+   - Instructions: "Play any video → Tap Scan → Get verdict"
+   - Navigation to History and Settings
 
-2. **Results Screen**
-   - Large verdict badge: "✅ Real" / "⚠️ AI-Generated" / "🤔 Uncertain"
+2. **Scanning Screen**
+   - Animated pulsing circle with progress indicator
+   - Per-layer progress dots
+   - Pause / Resume / Cancel controls
+   - Floating overlay simulation (Scan / Pause-Play / Finish)
+
+3. **Results Screen**
+   - Large verdict badge: "⚠️ AI-Generated" / "✅ Real" / "🤔 Uncertain"
    - Confidence percentage (0-100%)
-   - Detection breakdown (which layers flagged it)
-   - Per-layer confidence bars
+   - Per-layer confidence bars with details
+   - Processing time display
 
-3. **History Screen**
-   - List of past scans with verdicts
-   - Filter by verdict type
+4. **History Screen**
+   - List of past scans with verdicts + thumbnails
+   - Relative timestamps ("2m ago", "1h ago")
    - Tap to re-view full results
 
-4. **Settings Screen**
-   - Account / subscription status
-   - Daily scan limit counter
-   - About / methodology explainer
+5. **Settings Screen**
+   - Max scan duration setting
+   - Capture quality setting
+   - Account / plan info
+   - Upgrade to Pro CTA
+   - Privacy policy / methodology links
 
-### Backend (Python / FastAPI on VPS with GPU)
+### Backend (Python / FastAPI on VPS)
 
 **Endpoints:**
 
 ```
-POST /scan
-  Body: { "youtube_url": "..." }
+POST /scan/screen
+  Body: { "frames": [base64...], "duration_ms": 3000 }
   Response: { "job_id": "..." }
 
 GET /result/{job_id}
   Response: {
-    "verdict": "ai_generated" | "real" | "uncertain",
-    "confidence": 87,
-    "layers": {
-      "provenance": { "flagged": false, "score": 5 },
-      "visual": { "flagged": true, "score": 92, "details": [...] },
-      "deep_learning": { "flagged": true, "score": 85 },
-      "contextual": { "flagged": false, "score": 10 }
-    },
-    "processing_time_ms": 24500
+    "status": "completed",
+    "result": {
+      "verdict": "ai_generated" | "real" | "uncertain",
+      "confidence": 87,
+      "layers": {
+        "provenance": { "flagged": false, "score": 12, "details": [] },
+        "visual": { "flagged": true, "score": 94, "details": [...] },
+        "deep_learning": { "flagged": true, "score": 85, "details": [] },
+        "contextual": { "flagged": false, "score": 8, "details": [] }
+      },
+      "processing_time_ms": 24500,
+      "scanned_at": "2026-05-31T..."
+    }
   }
 ```
 
 **Stack:**
 - FastAPI (Python web framework)
-- CUDA GPU for ML inference (if available) — CPU fallback OK for MVP
-- Celery + Redis for job queuing (background processing)
-- PostgreSQL for scan history
-- YouTube Data API v3 for metadata
+- OpenCV + NumPy for visual artifact analysis
+- PyTorch for ML model inference (UNITE/STALL)
+- SQLite for scan history (MVP), PostgreSQL (production)
 
 ---
 
@@ -111,220 +118,137 @@ GET /result/{job_id}
 
 | Model | Purpose | Size | Notes |
 |-------|---------|------|-------|
-| **MediaPipe Face Detection** | Face landmark extraction | ~15MB | Lightweight, runs on CPU |
-| **BlazeFace** | Fast face detector | ~1MB | Alternative to MediaPipe |
-| **LSTM/Transformer** | Temporal anomaly modeling | ~50-200MB | Detects frame inconsistencies |
-| **Frequency Analyzer** | Spatial frequency fingerprints | ~10MB | Custom implementation |
+| **OpenCV DFT** | Spatial frequency analysis | ~0MB | Custom implementation |
+| **Color Analyzer** | Color distribution check | ~0MB | Custom implementation |
+| **MediaPipe Face** | Face landmark extraction | ~15MB | Deferred for MVP |
 
 ### Layer 3 — Deep Learning Classifier (Pre-trained)
 
 | Model | Purpose | Size | Notes |
 |-------|---------|------|-------|
-| **DeMamba** | SOTA video deepfake detection | ~500MB | Most accurate but heavy |
-| **BusterX++** | MLLM-based with reasoning | ~1-2GB | Best explanation capability |
 | **UNITE** | Universal synthetic detector | ~400MB | Good balance of speed/accuracy |
 | **STALL** | Training-free, fast | ~100MB | Good for quick checks |
+| **DeMamba** | SOTA video deepfake detection | ~500MB | Most accurate but heavy |
 
-**MVP choice:** Use **UNITE** or **STALL** for MVP — good accuracy with reasonable model size. Upgrade to DeMamba later.
-
-### YouTube Data API v3 (Free, 10k units/day)
-- Fetch video metadata (title, channel, upload date, duration)
-- Check if YouTube has flagged the video as AI-generated
-- Rate limit: handle gracefully
+**MVP choice:** Use **OpenCV visual analysis** for Layer 2. Layer 3 is simulated for MVP (random score). Upgrade to UNITE/STALL when GPU is available on VPS.
 
 ---
 
-## 5. Video Processing Flow
+## 5. Screen Capture Flow
 
 ```
-1. Receive YouTube URL
-2. Extract video ID → call YouTube Data API
-3. Download video (pytube / yt-dlp) — DASH manifest handling
-4. Extract frames at intervals (1 frame per second, or key frames)
-5. Run Layer 1 — metadata check (YouTube API response)
-6. For each frame:
-   - Run face detection
-   - Extract facial landmarks
-   - Compute spatial frequency features
-7. Run temporal analysis across frame sequence
-8. Feed features to deep learning classifier
-9. Aggregate layer scores → final verdict
-10. Store result in DB → return to app
-```
-
-**Important:** YouTube re-encodes videos → some metadata (C2PA) gets stripped. Visual artifacts may be degraded by compression. Layer 1 (provenance) will often be inconclusive → rely more on Layers 2 & 3.
-
----
-
-## 6. App Screens (Basic Wireframes)
-
-### Screen 0 — Home/Scan
-```
-┌─────────────────────────┐
-│  🔍 Athena              │
-│                         │
-│  Paste YouTube URL      │
-│  ┌─────────────────────┐ │
-│  │ https://youtube...  │ │
-│  └─────────────────────┘ │
-│                         │
-│  [ ▶ Analyze Video ]    │
-│                         │
-│  ── Recent Scans ──      │
-│  • Video title  ✅ Real  │
-│  • Video title  ⚠️ AI    │
-└─────────────────────────┘
-```
-
-### Screen 1 — Results
-```
-┌─────────────────────────┐
-│  ← Back                 │
-│                         │
-│  ┌─────────────────┐   │
-│  │  ⚠️ AI-GENERATED │   │
-│  │      87%         │   │
-│  └─────────────────┘   │
-│                         │
-│  Detection Breakdown:   │
-│  ▓▓▓▓▓▓▓▓░░ Provenance │
-│  ▓▓▓▓▓▓▓▓▓▓ Visual     │
-│  ▓▓▓▓▓▓▓▓▓░ Deep Learning│
-│  ▓░░░░░░░░░ Contextual  │
-│                         │
-│  Key findings:          │
-│  • Facial artifacts: YES │
-│  • Temporal anomalies    │
-│  • Low compression flag │
-└─────────────────────────┘
+1. User taps "Start Scanning" on Home screen
+2. System permission dialog (MediaProjection) — shown once
+3. Floating overlay appears over any app
+   ├── [SCAN] — Start capturing 3 seconds of frames
+   ├── [PAUSE/PLAY] — Pause and resume capture
+   └── [FINISH] — End capture early
+4. Capture 3 seconds at ~30fps → ~90 frames
+5. Frames sent to backend as base64-encoded JPEGs
+6. Backend runs 4-layer analysis pipeline
+7. Results returned → displayed on Results screen
 ```
 
 ---
 
-## 7. Monetization
-
-### Freemium Model
-
-| Feature | Free | Pro ($4.99/mo) |
-|---------|------|---------------|
-| Daily scans | 5 | Unlimited |
-| Verdict only | ✅ | ✅ |
-| Per-layer breakdown | ❌ | ✅ |
-| History | Last 10 | Unlimited |
-| Batch scanning | ❌ | ✅ |
-| Export report | ❌ | ✅ |
-
-### Why this works:
-- Casual users get enough value (5 scans/day)
-- Power users (journalists, researchers) pay for full access
-- Low friction: no credit card needed for free tier
-
----
-
-## 8. MVP Scope
-
-**To ship in 2-3 weeks:**
-
-1. **Backend (Priority)**
-   - YouTube URL → video metadata (YouTube API)
-   - Basic frame extraction (ffmpeg)
-   - Layer 1 (provenance check via YouTube API label)
-   - Simple visual analysis (face detection + basic artifact check)
-   - Results endpoint returning verdict + confidence
-
-2. **App (Priority)**
-   - URL input screen
-   - Basic results screen with verdict + confidence
-   - Simple history list
-
-**Deferred (Post-MVP):**
-- Deep learning classifier (Layer 3) — requires GPU, model fine-tuning
-- Per-layer detailed breakdown
-- Subscription management
-- Full visual artifact analysis pipeline
-
----
-
-## 9. Tech Stack Summary
+## 6. Project Structure
 
 ```
-Flutter (Android)
-  │
-  └── FastAPI (Python backend on VPS)
-        │
-        ├── YouTube Data API v3
-        ├── MediaPipe (face detection)
-        ├── OpenCV + ffmpeg (frame extraction)
-        ├── PyTorch (deep learning model)
-        ├── PostgreSQL (scan history)
-        └── Redis + Celery (job queue)
+athena/
+├── lib/
+│   ├── main.dart              # App entry + routing
+│   ├── models/
+│   │   ├── scan_result.dart   # ScanResult, LayerScores, LayerScore
+│   │   └── scan_history.dart  # History models
+│   ├── services/
+│   │   ├── api_service.dart   # HTTP calls to backend
+│   │   └── screen_capture_service.dart  # Platform channel to native
+│   └── ui/
+│       ├── screens/
+│       │   ├── scan_screen.dart      # Home / Scan button
+│       │   ├── scanning_screen.dart  # Animated scanning UI
+│       │   ├── results_screen.dart   # Verdict + breakdown
+│       │   ├── history_screen.dart   # Past scans list
+│       │   └── settings_screen.dart  # Preferences
+│       └── widgets/
+├── android/
+│   └── app/src/main/
+│       ├── java/com/athena/app/
+│       │   └── ScreenCaptureService.java  # MediaProjection native code
+│       └── res/
+└── backend/
+    ├── requirements.txt
+    └── app/
+        └── main.py           # FastAPI app + ML pipeline
 ```
 
 ---
 
-## 10. Development Phases
+## 7. Development Phases
 
-### Phase 1: Backend MVP (3-5 days)
-- [ ] Set up FastAPI project on VPS
-- [ ] YouTube URL → metadata extraction
-- [ ] Video download (yt-dlp)
-- [ ] Frame extraction (ffmpeg)
-- [ ] Layer 1: YouTube AI label check
-- [ ] Basic face detection (MediaPipe)
-- [ ] Results endpoint
-- [ ] Basic scan history DB
+### Phase 1: App MVP (Flutter Screens) ✅
+- [x] Scan screen with big button
+- [x] Scanning screen with animation
+- [x] Results screen with per-layer bars
+- [x] History screen
+- [x] Settings screen
+- [x] Routing and navigation
+- [x] Dark theme throughout
 
-### Phase 2: App MVP (5-7 days)
-- [ ] Flutter project setup
-- [ ] Home screen with URL input
-- [ ] Call backend API → show loading
-- [ ] Results screen (verdict + confidence)
-- [ ] Basic history screen
-- [ ] Connect to backend (production URL)
+### Phase 2: Native Android (MediaProjection) ✅
+- [x] MainActivity.kt — permission flow + platform channel handlers
+- [x] FloatingOverlayService.kt — 3-button overlay, frame capture via MediaProjection
+- [x] EventChannel for frame streaming to Flutter
+- [x] BroadcastReceiver for overlay button actions
+- [x] Foreground service with notification
+- [x] Flutter platform channel integration (ScreenCaptureService)
+- [x] Floating overlay implementation (FloatingOverlayService)
+- [x] Frame encoding (RGBA→PNG via image package)
 
-### Phase 3: Visual Analysis (5-7 days)
-- [ ] Facial landmark extraction pipeline
-- [ ] Blinking detection
-- [ ] Mouth sync analysis (if audio available)
-- [ ] Temporal frame consistency check
-- [ ] Spatial frequency analysis
-- [ ] Stitching artifact detection
+### Phase 3: Backend MVP (FastAPI) ✅
+- [x] `/scan/screen` endpoint
+- [x] `/result/{job_id}` polling endpoint
+- [x] `/history` endpoint
+- [x] Layer 1: Provenance (frame metadata analysis)
+- [x] Layer 2: Visual artifacts (OpenCV DFT + color analysis)
+- [x] Layer 3: Deep learning (simulated for MVP)
+- [x] Layer 4: Contextual signals
+- [x] Verdict aggregation
 
-### Phase 4: Deep Learning (7-10 days)
-- [ ] Model selection (UNITE or STALL)
-- [ ] Model deployment on GPU VPS
-- [ ] Integrate into pipeline
-- [ ] Ensemble voting with visual analysis
+### Phase 4: ML Integration (Post-MVP)
+- [ ] Integrate UNITE or STALL model on VPS GPU
+- [ ] Face landmark pipeline (MediaPipe)
+- [ ] Temporal frame consistency analysis
+- [ ] Per-layer detailed explanations
 
-### Phase 5: Polish & Monetization (5-7 days)
-- [ ] Per-layer breakdown UI
-- [ ] Subscription system (Stripe or LemonSqueezy)
+### Phase 5: Polish & Monetization
+- [ ] Subscription system (Stripe / LemonSqueezy)
 - [ ] Report export feature
 - [ ] App store listing
 
 ---
 
-## 11. Key Risks & Mitigations
+## 8. Key Risks & Mitigations
 
 | Risk | Mitigation |
 |------|------------|
-| YouTube API rate limits | Cache results, exponential backoff |
-| Detection accuracy poor | Start with Layer 1 only (YouTube's own labels), improve from user feedback |
-| Video download fails (DASH manifests) | Use yt-dlp (most robust), fallback to direct stream |
-| GPU cost too high for VPS | Start with CPU models (STALL is training-free, CPU-friendly), upgrade later |
-| AI improves faster than detection | Build retraining pipeline from day 1 |
-| YouTube re-encodes → strips metadata | Don't rely on metadata-only detection, use visual analysis |
+| MediaProjection permission denied | Show friendly message, guide to settings |
+| Backend too slow | Show real-time layer progress from app |
+| ML model too heavy for VPS | Use STALL (100MB, CPU-friendly) for MVP |
+| Detection accuracy poor | Start with Layer 1+2 only, improve from user feedback |
+| Screen capture API changes | Test on multiple Android versions |
 
 ---
 
-## 12. Similar Apps / References
+## 9. Similar Apps / References
 
 - **Deepware** (deepware.ai) — Online deepfake scanner, similar concept
 - **TruthScan** (truthscan.com) — Claims 99%+ accuracy
 - **Fake AV Detection** — Academic projects, not commercial
 
-**Differentiation:** Cleaner UX, better explanation of results, freemium model.
+**Differentiation:** No URL input needed, cleaner UX, better explanation of results, freemium model.
 
 ---
 
 *Plan created: 2026-05-31*
+*Updated: 2026-05-31 — Screen capture UX*
